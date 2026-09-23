@@ -1,383 +1,234 @@
 # JusExpertia — Análise Jurisprudencial de Danos Morais
 
-## MVP de Engenharia de Dados em Nuvem — Databricks Lakehouse
+**MVP de Engenharia de Dados em Nuvem | Databricks Lakehouse, IA e Power BI**  
+**Tema:** negativação indevida e indenização por dano moral  
+**Tribunais:** TJAM · TJPA · TJPE · TJSE  
+**Período analítico:** 2020–2025  
+**Atualização desta documentação:** 23 de setembro de 2026
 
-**Tema:** análise jurisprudencial de indenizações por dano moral em casos de negativação indevida  
-**Tribunais:** TJAM, TJPA, TJPE e TJSE  
-**Período analítico principal:** 2020–2025  
-**Plataforma:** Databricks Free Edition  
-**Tecnologias:** Apache Spark / PySpark, SQL, Delta Lake, Unity Catalog, Databricks Dashboards e IA generativa para validação semântica
+[![Databricks](https://img.shields.io/badge/Databricks-Lakehouse-orange)](https://www.databricks.com/)
+[![PySpark](https://img.shields.io/badge/PySpark%20%7C%20SQL-Delta%20Lake-blue)](https://spark.apache.org/)
+[![Power BI](https://img.shields.io/badge/Power%20BI-Dashboard%20p%C3%BAblico-F2C811)](https://powerbi.microsoft.com/)
 
----
+## Acesso rápido
+
+**[▶ Abrir o dashboard interativo do JusExpertia no Power BI](https://app.powerbi.com/view?r=eyJrIjoiYzIxZDRkMDEtNTQ2Zi00YTZmLWJjNzYtNGQ1NjE5N2FkYWQ2IiwidCI6IjFiYTk1NTkzLTIzZDctNGJhYS1hMWQ2LTNjNWMwMDZlMWQ4NSJ9)**
+
+**[Repositório no GitHub](https://github.com/genivalfeitoza/jus-expertia-mvp)** · **[Notebooks](notebooks/)** · **[Scripts](scripts/)** · **[Documentação](docs/)** · **[Evidências visuais](docs/screenshots/)**
+
+> **Status de entrega:** o pipeline e as tabelas analíticas foram produzidos no Databricks; o enriquecimento semântico de 677 casos foi concluído, auditado e importado; o relatório Power BI foi publicado com três páginas e teve um código de publicação na Web gerado. Convém testar o link em uma janela anônima para confirmar o acesso sem autenticação. A documentação do repositório distingue o que foi implementado do que permanece como melhoria futura.
 
 ## Resumo executivo
 
-O **JusExpertia** implementa um pipeline de dados de ponta a ponta em nuvem para transformar jurisprudência pública em informação analítica estruturada, rastreável e auditável.
+O **JusExpertia** é um MVP que transforma textos de decisões judiciais disponibilizadas publicamente em dados estruturados para pesquisa jurisprudencial, análises estatísticas e validação semântica por inteligência artificial. O projeto responde a um problema prático: um mesmo acórdão pode mencionar pedidos, valores anteriormente arbitrados, danos materiais, honorários e valor final da indenização, além de conter linguagem que dificulta a classificação automática do resultado recursal.
 
-O problema de negócio parte de uma dificuldade prática: decisões judiciais sobre **negativação indevida e indenização por dano moral** contêm informações relevantes dispersas em textos não estruturados, como valor da indenização, resultado recursal, fundamento jurídico, órgão julgador, data e referência oficial. A leitura manual de milhares de decisões é lenta, pouco escalável e sujeita a inconsistências.
+O fluxo parte de um corpus local com **1.224.133 registros** de quatro tribunais, pré-seleciona **21.371 candidatos temáticos** e organiza os dados em arquitetura Lakehouse no Databricks. No recorte analítico principal, **1.617 julgados qualificados** de 2020 a 2025 sustentam indicadores, filtros e gráficos. Uma **amostra estratificada separada de 677 casos** passou por processamento semântico com DeepSeek, controle de evidências textuais e comparação com classificações heurísticas.
 
-O MVP foi estruturado em arquitetura Lakehouse/Medalhão, com ingestão, tratamento, classificação, auditoria de qualidade, enriquecimento por IA e visualização em dashboard. O trabalho partiu de um corpus local de **1.224.133 registros**, realizou pré-seleção temática de **21.371 candidatos**, produziu uma camada analítica qualificada com **1.617 julgados de 2020 a 2025** e aplicou validação semântica por IA em uma **amostra estratificada de 677 casos**.
+O projeto apresenta resultados em duas interfaces complementares: um dashboard analítico no Databricks e um relatório interativo público no **Microsoft Power BI**, com as páginas **Visão Geral**, **Julgados** e **Detalhe do Processo**. As limitações da disponibilidade de documentos, das datas e dos links são indicadas explicitamente: uma URL cadastrada não equivale necessariamente a acesso direto ao inteiro teor.
 
-O resultado final inclui tabelas Delta persistidas no Databricks, controles de qualidade, catálogo/linhagem e um dashboard publicado denominado **JusExpertia — Análise Jurisprudencial de Danos Morais**.
+| Indicador | Resultado | População / interpretação |
+|:---|---:|:---|
+| Corpus de origem | **1.224.133** | Registros locais dos quatro tribunais |
+| Pré-seleção temática | **21.371** | Candidatos, não casos necessariamente confirmados |
+| Universo qualificado | **1.617** | Recorte principal, 2020–2025, `flag_valor_v5 = OK` |
+| Média / mediana | **R$ 5.686,48 / R$ 5.000,00** | Universo qualificado |
+| P25 / P75 | **R$ 4.000,00 / R$ 7.000,00** | Universo qualificado |
+| Registros com URL cadastrada | **65,62%** | Inclui links genéricos de consulta, quando existentes |
+| Amostra submetida à IA | **677/677** | Amostra estratificada; não representa processamento integral dos 1.617 |
+| Inteiro teor recuperado | **337** | Entre os 677; outros 340 foram analisados pela ementa |
+| Revisão humana indicada | **9** | Entre os 677 |
+| Divergências regra × IA | **224 resultados / 71 valores** | Discordâncias, não taxa de erro verificada |
 
-> A solução não substitui a análise jurídica humana. O objetivo é demonstrar, em escala de MVP, como Engenharia de Dados pode transformar documentos jurídicos públicos em um ativo analítico reproduzível e útil para apoio à decisão.
-
----
-
-# 1. Contexto de Negócios e Perguntas (Etapa 2 e 4.1)
-
-## 1.1 Problema de negócio
-
-Profissionais jurídicos precisam responder perguntas como: qual o valor típico do dano moral, como esse valor varia entre tribunais, quais fundamentos aparecem com maior frequência, quando a indenização é majorada/reduzida/mantida/reconhecida e como os valores evoluem no tempo.
-
-O problema central foi:
-
-> **Como construir um pipeline de dados em nuvem capaz de organizar, qualificar e analisar jurisprudência sobre negativação indevida e dano moral, permitindo comparar valores, resultados recursais, fundamentos jurídicos e comportamento dos tribunais de forma reproduzível e auditável?**
-
-## 1.2 Objetivo geral
-
-Construir um pipeline no Databricks que:
-
-1. receba dados jurisprudenciais previamente coletados de fontes públicas oficiais;
-2. preserve a rastreabilidade da origem;
-3. realize limpeza, padronização, deduplicação e classificação temática;
-4. extraia indicadores jurídicos e monetários;
-5. produza tabelas analíticas em Delta Lake;
-6. aplique controles de qualidade;
-7. utilize uma amostra estratificada para validação semântica por IA;
-8. disponibilize os resultados em dashboard.
-
-## 1.3 Perguntas de negócio
-
-**P1. Qual é o valor típico da indenização por dano moral?**  
-Usar média, mediana, P25, P75 e faixas de valor.
-
-**P2. Existem diferenças relevantes entre TJAM, TJPA, TJPE e TJSE?**  
-Comparar quantidade de casos, média, mediana, faixas, resultado recursal e fundamentos.
-
-**P3. Como os valores evoluíram entre 2020 e 2025?**  
-Analisar a mediana anual por tribunal.
-
-**P4. Qual é a distribuição dos resultados recursais?**  
-Categorias: `MAJORADO`, `MANTIDO`, `RECONHECIDO`, `REDUZIDO` e, na camada de IA, `NAO_DETERMINADO` quando necessário.
-
-**P5. Quais fundamentos jurídicos aparecem com maior frequência?**
-
-**P6. Qual é a cobertura de rastreabilidade por URL oficial?**
-
-**P7. Até que ponto regras heurísticas de classificação/extração divergem de uma análise semântica por IA?**
-
-## 1.4 Contexto dos dados brutos
-
-Corpus de origem:
-
-| Tribunal | Registros |
-|---|---:|
-| TJSE | 393.078 |
-| TJPA | 145.465 |
-| TJAM | 101.746 |
-| TJPE | 583.844 |
-| **Total** | **1.224.133** |
-
-Pré-seleção temática:
-
-| Tribunal | Candidatos |
-|---|---:|
-| TJSE | 11.971 |
-| TJPA | 1.277 |
-| TJAM | 2.629 |
-| TJPE | 5.494 |
-| **Total** | **21.371** |
-
-A pré-seleção foi tratada como candidatura temática, e não como caso confirmado. Isso evita, por exemplo, interpretar a expressão “não houve negativação” como negativação positiva.
-
-## 1.5 Licença e uso
-
-Os dados derivam de decisões disponibilizadas publicamente em portais oficiais dos tribunais. Não foi assumida uma licença aberta única e padronizada para todos os portais. O uso foi acadêmico/demonstrativo, com preservação de proveniência e URL oficial quando disponível.
-
-O repositório público disponibiliza **código e documentação**, não sendo necessário republicar o corpus bruto.
+> **Uso responsável:** resultados produzidos por regras ou LLM são apoio à pesquisa e dependem de conferência na fonte oficial e, para uso jurídico, de revisão profissional. O link Power BI criado por *Publicar na Web* é público; não deve ser utilizado para incluir informações sigilosas ou dados que não tenham sido avaliados para divulgação.
 
 ---
 
-# 2. Carga dos Dados (Etapa 4.2)
+## Sumário
 
-## 2.1 Fluxo de entrada
+1. [Contexto de negócios e perguntas](#1-contexto-de-negócios-e-perguntas)
+2. [Origem, coleta e carga dos dados](#2-origem-coleta-e-carga-dos-dados)
+3. [Modelagem e catálogo de dados](#3-modelagem-e-catálogo-de-dados)
+4. [Pipeline e enriquecimento por IA](#4-pipeline-e-enriquecimento-por-ia)
+5. [Qualidade, rastreabilidade e limitações](#5-qualidade-rastreabilidade-e-limitações)
+6. [Análises e resultados](#6-análises-e-resultados)
+7. [Dashboards: Databricks e Power BI](#7-dashboards-databricks-e-power-bi)
+8. [Estrutura e reprodutibilidade do repositório](#8-estrutura-e-reprodutibilidade-do-repositório)
+9. [Evidências e documentação complementar](#9-evidências-e-documentação-complementar)
+10. [Autoavaliação](#10-autoavaliação)
+11. [Próximos passos](#11-próximos-passos)
+
+---
+
+# 1. Contexto de negócios e perguntas
+
+### Problema
+
+A pesquisa de indenizações por negativação indevida exige identificar e comparar, em documentos extensos e não estruturados, **resultado do recurso**, **quantum indenizatório**, **fundamentos jurídicos**, **data do julgamento** e **endereço oficial**. Uma leitura baseada exclusivamente em palavras-chave pode confundir uma alegação da parte com a conclusão do tribunal ou um valor pedido com aquele efetivamente fixado.
+
+**Pergunta central:** como construir um pipeline em nuvem que organize, qualifique e analise esse conjunto de decisões de forma rastreável, permita exploração interativa e ajude a identificar divergências entre extração heurística e interpretação contextual por IA?
+
+As perguntas de negócio do MVP são:
+
+- **P1 — Quantum:** qual é a distribuição dos valores de dano moral, incluindo média, mediana, P25 e P75?
+- **P2 — Tribunais:** como variam os indicadores entre TJAM, TJPA, TJPE e TJSE?
+- **P3 — Tempo:** como os valores e volumes se comportam no recorte analítico de 2020 a 2025?
+- **P4 — Resultado recursal:** qual é a distribuição de `MAJORADO`, `MANTIDO`, `RECONHECIDO` e `REDUZIDO`?
+- **P5 — Fundamentos:** quais fundamentos jurídicos foram detectados com maior frequência?
+- **P6 — Proveniência:** qual é a disponibilidade de URLs oficiais registradas?
+- **P7 — Validação semântica:** onde as classificações e os valores extraídos por regras divergem daqueles identificados pela IA?
+
+O projeto tem finalidade acadêmica e demonstrativa. Os dados de origem provêm de portais públicos, mas não se presume uma licença aberta única para todos os tribunais e documentos. O corpus integral não é republicado neste repositório.
+
+# 2. Origem, coleta e carga dos dados
+
+### 2.1 Corpus de origem
+
+| Tribunal | Registros locais | Pré-seleção temática |
+|:---|---:|---:|
+| TJSE | 393.078 | 11.971 |
+| TJPA | 145.465 | 1.277 |
+| TJAM | 101.746 | 2.629 |
+| TJPE | 583.844 | 5.494 |
+| **Total** | **1.224.133** | **21.371** |
+
+A pré-seleção reúne **candidatos** para o tema de negativação indevida e dano moral. Ela não equivale a confirmação jurídica de todos os registros: expressões como “não houve negativação”, por exemplo, precisam ser interpretadas no contexto.
+
+### 2.2 Fluxo de ingestão
 
 ```text
 Portais públicos dos tribunais
-        ↓
-Coleta e consolidação local
-        ↓
-SQLite — corpus jurisprudencial
-        ↓
-Pré-seleção temática
-        ↓
-Carga no Databricks
-        ↓
-Tabelas Delta / Unity Catalog
+    ↓ coleta e consolidação local
+Corpus SQLite, separado por tribunal
+    ↓ pré-seleção temática
+21.371 candidatos
+    ↓ carga no Databricks Free Edition
+workspace.default.bronze_jurisprudencia_negativacao
+    ↓ transformações, normalização e classificação
+Camadas analíticas Delta / Unity Catalog
+    ↓ recorte de qualidade e período
+1.617 julgados qualificados → dashboard
+    ↓ amostragem estratificada
+677 casos → processamento DeepSeek → auditoria → Delta → dashboards
 ```
 
-## 2.2 Carga para a nuvem
+O recorte `2020–2025` é aplicado ao **ano analítico da base**, relacionado à referência temporal normalizada. Isso não significa que todos os registros contenham a data exata de julgamento. Tampouco se deve confundir o ano inserido no número de um processo com o ano em que o recurso foi julgado.
 
-O ambiente utilizado foi o **Databricks Free Edition**. Os dados foram persistidos no catálogo:
+### 2.3 Upload da saída de IA
 
-```text
-workspace.default
-```
-
-Para o enriquecimento por IA, o CSV final com 677 resultados foi enviado a um Managed Volume:
+O processamento por IA foi concluído em ambiente local e sua saída foi enviada ao Managed Volume no Databricks:
 
 ```text
 /Volumes/workspace/default/jus_expertia_mvp/resultados_deepseek_677.csv
 ```
 
-A carga foi validada antes da persistência:
+Validação do arquivo na carga:
+
+| Verificação | Resultado |
+|:---|---:|
+| Linhas | 677 |
+| Colunas | 81 |
+| IDs `id_llm` únicos | 677 |
+| TJAM | 138 |
+| TJPA | 139 |
+| TJPE | 200 |
+| TJSE | 200 |
+
+A persistência foi realizada nas tabelas `gold_deepseek_677_final`, `gold_deepseek_677_analytics` e `gold_deepseek_677_kpis`, em `workspace.default`. Os testes de carga e das tabelas analíticas retornaram `PASS`.
+
+# 3. Modelagem e catálogo de dados
+
+### 3.1 Arquitetura Lakehouse / Medalhão
+
+| Camada | Papel no pipeline | Artefatos confirmados |
+|:---|:---|:---|
+| **Bronze** | Persistência dos candidatos, metadados e proveniência | `bronze_jurisprudencia_negativacao` |
+| **Silver — etapa lógica** | Limpeza, normalização, deduplicação e classificação temática/monetária | Transformações do pipeline; consultar notebooks e catálogo para os nomes físicos existentes |
+| **Gold** | Dados qualificados, amostra de IA, resultados tipados e KPIs | `gold_judicial_analytics_base`, `gold_amostra_llm_2020_2025`, `gold_deepseek_677_final`, `gold_deepseek_677_analytics`, `gold_deepseek_677_kpis` |
+
+As etapas Bronze, Silver e Gold descrevem a organização lógica do processamento. **Este README não atribui um nome físico a uma tabela Silver sem confirmação pelo catálogo.** A tabela `gold_judicial_analytics_base` é uma base analítica a partir da qual se aplica o filtro dos 1.617 casos utilizados no dashboard principal; não se deve confundir a contagem total de uma tabela com a contagem de seu subconjunto qualificado.
+
+### 3.2 Principais campos
+
+| Campo | Origem / uso | Interpretação |
+|:---|:---|:---|
+| `id_origem`, `processo`, `numero_acordao` | Ingestão / Gold | Identificadores para rastreabilidade; um processo pode ter mais de uma decisão |
+| `tribunal` | Todas as camadas | TJAM, TJPA, TJPE ou TJSE |
+| `classe`, `relator`, `orgao` | Ingestão | Metadados processuais, quando disponíveis |
+| `data_julgamento`, `data_publicacao` | Ingestão / apresentação | Datas distintas, ambas passíveis de ausência |
+| `data_referencia`, `ano` | Gold | Referência temporal normalizada e ano analítico |
+| `ementa` | Ingestão / análise | Texto-base disponível em todos os casos analisados por IA |
+| `url_oficial` | Ingestão / Power BI | Endereço oficial registrado; nem sempre link direto ao inteiro teor |
+| `content_hash` | Ingestão | Apoio à identificação e deduplicação |
+| `resultado_dano_moral` | Gold principal | Resultado recursal por regra heurística |
+| `valor_final_dano_moral_v5`, `flag_valor_v5` | Gold principal | Valor extraído e respectivo status de qualidade |
+| `id_llm`, `resultado_llm`, `valor_final_dano_moral_llm` | Gold IA | Identificador determinístico e respostas estruturadas da IA |
+| `inteiro_teor_obtido_bool`, `revisao_humana_bool` | Gold IA | Proveniência do documento e sinalização de revisão |
+| `divergencia_resultado_bool`, `divergencia_valor_bool` | Gold IA | Comparação regra × IA |
+
+O Unity Catalog organiza as tabelas persistidas, seus esquemas e a consulta de metadados. Uma documentação de catálogo **exaustiva** deve usar os esquemas reais exportados do Databricks, sem criar campos, tipos, descrições ou relações não verificados.
+
+### 3.3 Linhagem resumida
 
 ```text
-TOTAL_LINHAS = 677
-TOTAL_COLUNAS = 81
-IDS_UNICOS = 677
-TJAM = 138
-TJPA = 139
-TJPE = 200
-TJSE = 200
+SQLite local / portais oficiais
+  → pré-seleção de 21.371 candidatos
+  → bronze_jurisprudencia_negativacao
+  → limpeza / extração / validação
+  → gold_judicial_analytics_base
+       ├─ recorte 2020–2025 + V5 OK: 1.617 → análise principal
+       └─ amostra estratificada: 677
+            → DeepSeek + auditoria literal
+            → gold_deepseek_677_final
+            → gold_deepseek_677_analytics
+            → gold_deepseek_677_kpis
+            → análise de divergências e visualização
 ```
 
-## 2.3 Gates de carga
+# 4. Pipeline e enriquecimento por IA
 
-```text
-GATE_TABELA_FINAL = PASS
-GATE_ANALYTICS = PASS
-GATE_COMPARACAO_DEEPSEEK = PASS
-GATE_KPIS_DEEPSEEK = PASS
-```
+### 4.1 Tratamento e seleção
 
-## 2.4 Referência ao código
+A transformação combina normalização textual e temporal, padronização de tribunais, tratamento de ausências, análise temática contextual e extração monetária. As regras procuram distinguir o **valor final** de dano moral de valor pleiteado, honorários, dano material, valor da causa e quantias de decisões anteriores.
 
-> Ajustar para os nomes finais do GitHub.
+Após os filtros de período e de qualidade monetária (`flag_valor_v5 = OK`), o universo principal contém:
 
-```text
-/notebooks/
-  01_JusExpertia_Diagnostico_Dados.py
-  02_JusExpertia_Transformacao.py
-  03_JusExpertia_Gold.py
-  04_JusExpertia_Qualidade.py
-  05_JusExpertia_DeepSeek_Analytics.py
-
-/scripts/
-  processar_deepseek_677.py
-  diagnosticar_4_faltantes.py
-  reprocessar_4_faltantes.py
-```
-
-**Screenshots nesta seção:** Managed Volume; validação 677/677; Catalog Explorer com tabelas persistidas.
-
----
-
-# 3. Modelagem e Catálogo de Dados (Etapa 4.3)
-
-## 3.1 Arquitetura
-
-```text
-FONTES PÚBLICAS
-      ↓
-CORPUS LOCAL SQLITE
-      ↓
-BRONZE — preservação + proveniência
-      ↓
-SILVER — limpeza + normalização + classificação + qualidade
-      ↓
-GOLD — analytics + amostra IA + KPIs + dashboard
-```
-
-O modelo é predominantemente **flat analítico por conceito**, adequado ao Lakehouse e às perguntas do MVP.
-
-## 3.2 Principais tabelas
-
-| Tabela | Camada | Granularidade | Finalidade |
-|---|---|---|---|
-| `bronze_jurisprudencia_negativacao` | Bronze | 1 linha por candidato | Preservar dados jurisprudenciais e proveniência |
-| `gold_judicial_analytics_base` | Gold | 1 linha por julgado qualificado | Base analítica principal |
-| `gold_amostra_llm_2020_2025` | Gold | 1 linha por caso da amostra | Amostra estratificada |
-| `gold_deepseek_677_final` | Gold | 1 linha por caso analisado por IA | Resultado completo da inferência |
-| `gold_deepseek_677_analytics` | Gold | 1 linha por caso | Versão tipada para análise |
-| `gold_deepseek_677_kpis` | Gold | 1 linha agregada | KPIs da validação por IA |
-| `gold_dashboard_*` | Gold | agregada | Fontes específicas do dashboard |
-
-## 3.3 Campos centrais da Bronze
-
-| Campo | Tipo lógico | Descrição / domínio |
-|---|---|---|
-| `id` / `id_origem` | inteiro/string | Identificador na origem |
-| `tribunal` | string | TJAM, TJPA, TJPE, TJSE |
-| `processo` | string | Número do processo |
-| `numero_acordao` | string | Número do acórdão, quando disponível |
-| `classe` | string | Classe processual |
-| `relator` | string | Relator |
-| `data_julgamento` | data/string | Data do julgamento |
-| `data_publicacao` | data/string | Data da publicação |
-| `orgao` | string | Órgão julgador |
-| `ementa` | string | Ementa |
-| `url_oficial` | string | URL oficial, quando disponível |
-| `fonte` | string | Proveniência |
-| `provider` | string | Provedor/coletor |
-| `content_hash` | string | Hash para identidade/deduplicação |
-| `texto_busca` | string | Texto preparado para busca |
-
-## 3.4 Campos centrais da Gold principal
-
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `tribunal` | string | Tribunal |
-| `id_origem` | string | Identificador da origem |
-| `processo` | string | Processo |
-| `data_referencia` | date | Data normalizada |
-| `ano` | int | Ano |
-| `ementa` | string | Ementa |
-| `url_oficial` | string | URL conhecida |
-| `tem_url_oficial` | boolean/int | Indicador de cobertura |
-| `resultado_dano_moral` | string | Resultado recursal |
-| `valor_final_dano_moral_v5` | double | Valor final extraído |
-| `flag_valor_v5` | string | Status de qualidade |
-| `faixa_valor` | string | Faixa monetária |
-| `fundamentos_detectados` | string/array | Fundamentos jurídicos |
-
-Domínio principal de `resultado_dano_moral`:
-
-```text
-MAJORADO
-MANTIDO
-RECONHECIDO
-REDUZIDO
-```
-
-## 3.5 Campos centrais da Gold com IA
-
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `id_llm` | string | Identificador determinístico |
-| `tribunal` | string | Tribunal |
-| `processo` | string | Processo |
-| `ano` | int | Ano |
-| `fonte_analise_llm` | string | EMENTA ou EMENTA_E_INTEIRO_TEOR |
-| `inteiro_teor_obtido_bool` | boolean | Inteiro teor recuperado |
-| `resultado_regra` | string | Classificação heurística |
-| `resultado_llm` | string | Classificação semântica |
-| `valor_regra` | double | Valor da regra |
-| `valor_final_dano_moral_llm` | double | Valor da IA |
-| `confianca_llm` | double | Confiança declarada |
-| `revisao_humana_bool` | boolean | Necessidade de revisão |
-| `divergencia_resultado_bool` | boolean | Divergência de resultado |
-| `divergencia_valor_bool` | boolean | Divergência de valor |
-| `fundamentos_decisao_llm` | string/JSON | Fundamentos estruturados |
-| `fundamentos_quantum_llm` | string/JSON | Fundamentos do quantum |
-| `qtd_evidencias_removidas` | int | Evidências rejeitadas pela auditoria |
-| `qtd_fontes_corrigidas` | int | Fontes corrigidas |
-| `total_tokens` | long | Tokens utilizados |
-| `tempo_llm_segundos` | double | Tempo de inferência |
-
-## 3.6 Linhagem
-
-```text
-Fonte oficial
-  ↓
-SQLite local
-  ↓
-pré-seleção temática
-  ↓
-bronze_jurisprudencia_negativacao
-  ↓
-limpeza + classificação + extração
-  ↓
-gold_judicial_analytics_base
-  ↓
-filtro 2020–2025 + gates V5
-  ↓
-1.617 casos qualificados
-  ↓
-amostra estratificada
-  ↓
-gold_amostra_llm_2020_2025 (677)
-  ↓
-DeepSeek + auditoria literal
-  ↓
-gold_deepseek_677_final
-  ↓
-gold_deepseek_677_analytics
-  ↓
-gold_deepseek_677_kpis
-  ↓
-Dashboard publicado
-```
-
-> **Para nota máxima em Modelagem:** anexar no README um apêndice com **todas as colunas de todas as tabelas finais**, incluindo nome, tipo, descrição, domínio e linhagem. Esse apêndice deve ser gerado a partir dos schemas reais do Databricks para evitar qualquer campo inventado.
-
-**Screenshots nesta seção:** Unity Catalog, schema das tabelas, descrições e lineage.
-
----
-
-# 4. Pipeline de Dados (Etapa 4.4)
-
-## 4.1 Estágios
-
-### 1. Ingestão
-Persistência dos candidatos temáticos na camada Bronze.
-
-### 2. Padronização
-Normalização de texto, datas, tribunal, campos vazios, URL e metadados.
-
-### 3. Classificação temática
-Uso de termos fortes/contextuais e regras para evitar falsos positivos como “não houve negativação”.
-
-### 4. Extração monetária
-Identificação e classificação de valores, distinguindo valor final de dano moral de pedido, honorários, dano material, valor da causa etc.
-
-### 5. Gold analítica
-Conjunto 2020–2025 com **1.617 casos**:
-
-| Tribunal | Casos |
-|---|---:|
+| Tribunal | Casos qualificados |
+|:---|---:|
 | TJAM | 138 |
 | TJPA | 139 |
 | TJPE | 556 |
 | TJSE | 784 |
 | **Total** | **1.617** |
 
-Todos os 1.617 utilizados no dashboard principal estavam com `flag_valor_v5 = OK`.
+### 4.2 Amostragem e modelo
 
-### 6. Amostragem estratificada
+A amostra de **677 casos** contém todos os registros qualificados de TJAM (138) e TJPA (139) e uma seleção de 200 registros de TJPE e 200 de TJSE. A seleção considerou tribunal, categoria de resultado e faixas de valor, com ordenação determinística e sem duplicação artificial. **Não é uma amostra proporcional ao tamanho de todos os tribunais**; as análises de IA devem ser interpretadas dentro desse desenho amostral.
 
-```text
-TJAM 138
-TJPA 139
-TJPE 200
-TJSE 200
-TOTAL 677
-```
+O enriquecimento foi realizado pelo modelo `deepseek-ai/DeepSeek-V4-Flash-0731`, via API da Together AI, com entrada estruturada e exigência de saída JSON. Todos os casos utilizaram a ementa; o inteiro teor foi incorporado somente quando recuperado de uma fonte oficial pública e processável. O modelo não navega automaticamente pelos links, e não houve tentativa de contornar autenticação, CAPTCHA ou bloqueios dos portais.
 
-A amostra buscou equilíbrio por tribunal, resultado, faixa de valor e ano, sem duplicação artificial.
+| Tribunal | Casos na amostra | Inteiro teor recuperado | Casos para revisão humana |
+|:---|---:|---:|---:|
+| TJAM | 138 | 0 | 7 |
+| TJPA | 139 | 139 | 1 |
+| TJPE | 200 | 0 | 1 |
+| TJSE | 200 | 198 | 0 |
+| **Total** | **677** | **337** | **9** |
 
-### 7. Enriquecimento semântico
+Nos demais **340 casos**, a análise foi feita com a ementa. Para TJPA, foi utilizada, quando aplicável, uma interface pública de consulta por identificador de documento; para TJSE, relatórios oficiais acessíveis diretamente. TJAM e TJPE ficaram com ementa no processamento atual.
 
-Modelo:
+### 4.3 Resiliência, reprocessamento e auditoria
 
-```text
-deepseek-ai/DeepSeek-V4-Flash-0731
-```
+Foram implementados checkpoint por caso, recuperação de respostas JSON incompletas e reprocessamento dirigido de quatro casos que não haviam sido concluídos na primeira passagem. Após a recuperação, o processamento atingiu `677/677` (`GATE_677 = PASS`).
 
-Entrada: ementa em todos os casos e inteiro teor quando recuperável. Saída: JSON estruturado por schema.
+A auditoria **EVIDENCIA_LITERAL_V1** comparou as evidências textuais devolvidas pela IA com os textos efetivamente enviados ao modelo. Quando não havia correspondência literal, a evidência foi removida; rótulos de origem foram corrigidos quando o trecho estava presente em outra parte da entrada. No processamento consolidado:
 
-Resultado:
+- **315** evidências sem suporte literal foram removidas;
+- **13** referências de fonte foram corrigidas;
+- **9** casos permaneceram sinalizados para revisão humana.
 
-```text
-677 / 677 casos processados
-GATE_677 = PASS
-```
+Em uma verificação manual inicial de **10 casos**, as classificações de resultado e os valores da IA coincidiram com a auditoria realizada nessa amostra. Isso **não é uma taxa de acerto generalizável** para todos os 677 casos.
 
-### 8. Auditoria de evidências
-Evidências literais retornadas pela IA foram verificadas contra o texto efetivamente enviado. Evidências não encontradas foram removidas e fontes inconsistentes foram corrigidas.
-
-### 9. Persistência final
+### 4.4 Saídas persistidas
 
 ```text
 workspace.default.gold_deepseek_677_final
@@ -385,174 +236,177 @@ workspace.default.gold_deepseek_677_analytics
 workspace.default.gold_deepseek_677_kpis
 ```
 
-Gates:
+Os resultados heurísticos foram preservados ao lado das respostas da IA. Nenhuma divergência é automaticamente interpretada como erro da regra ou acerto do modelo sem validação jurídica adicional.
 
-```text
-TOTAL_TABELA = 677
-GATE_TABELA_FINAL = PASS
-TOTAL_ANALYTICS = 677
-IDS_UNICOS_ANALYTICS = 677
-GATE_ANALYTICS = PASS
-```
+# 5. Qualidade, rastreabilidade e limitações
 
-### 10. Dashboard
-Dashboard publicado como:
+A qualidade foi examinada quanto a **completude, consistência, unicidade, plausibilidade de valores, referências oficiais e suporte literal das evidências**.
 
-> **JusExpertia — Análise Jurisprudencial de Danos Morais**
+| Controle | Aplicação / resultado |
+|:---|:---|
+| **Completude** | Avaliação de ementa, processo, datas, valores, URLs e inteiro teor; ausências preservadas, não preenchidas por suposição |
+| **Consistência** | Normalização de datas, tribunal, resultado recursal, valores e indicadores booleanos |
+| **Unicidade** | 677 linhas para 677 identificadores `id_llm` no resultado importado |
+| **Plausibilidade monetária** | Distinção entre pedido, condenação, honorários e valores acessórios; análise de média, mediana, quartis e faixas |
+| **Evidência da IA** | Auditoria literal e indicação de casos para revisão humana |
+| **Proveniência** | Registro de origem e URL oficial quando disponível; distinção entre ementa e inteiro teor na amostra de IA |
 
-Seções:
+#### Limites de links oficiais
 
-1. **Análise Jurisprudencial — Universo de 1.617 casos qualificados**
-2. **Validação por IA — Amostra estratificada de 677 casos**
+| Tribunal | Situação nesta versão |
+|:---|:---|
+| TJSE | Há links de relatórios/decisões específicas cadastrados; acesso depende da validade do endereço |
+| TJPA | Há links para páginas de documentos específicos e recuperação de inteiro teor na amostra de IA |
+| TJAM | Os endereços cadastrados podem abrir a **consulta geral** do tribunal, exigindo pesquisa pelo usuário; não se deve apresentá-los como links diretos ao acórdão |
+| TJPE | **Sem URLs oficiais cadastradas** nesta versão do conjunto analisado |
 
----
+A métrica de **65,62%** indica a proporção de registros qualificados com alguma URL oficial cadastrada. Ela **não** significa que 65,62% dos julgados tenham link direto ao inteiro teor. Datas de julgamento ausentes aparecem como **“Não informada”** no detalhamento, mesmo quando existe `ano` analítico ou data de publicação.
 
-# 5. Qualidade de Dados (Etapa 4.5)
+A qualidade da IA também tem limites: o modelo pode interpretar incorretamente fatos e valores, sua confiança declarada não é uma probabilidade calibrada e a obtenção de inteiro teor foi desigual entre tribunais. A revisão jurídica continua necessária.
 
-## 5.1 Completude
-Foram avaliados nulos/ausências em ementa, processo, data, valor, URL e inteiro teor.
+# 6. Análises e resultados
 
-Cobertura de URL oficial no universo principal:
+### 6.1 Universo qualificado: 1.617 casos
 
-```text
-65,62%
-```
+| Métrica | Valor |
+|:---|---:|
+| Casos | 1.617 |
+| Média | R$ 5.686,48 |
+| Mediana | R$ 5.000,00 |
+| P25 | R$ 4.000,00 |
+| P75 | R$ 7.000,00 |
+| Cobertura de URL cadastrada | 65,62% |
 
-URLs ausentes não foram inventadas.
+A mediana de R$ 5.000,00 e o intervalo interquartil de R$ 4.000,00 a R$ 7.000,00 resumem o centro da distribuição, sem dispensar a análise de valores extremos e das diferenças entre tribunais.
 
-## 5.2 Consistência
-Padronização de datas, tribunais, categorias de resultado, valores e booleanos.
+**Comparação descritiva no recorte principal:**
 
-## 5.3 Unicidade
-Na amostra de IA:
+| Tribunal | Casos | Média aproximada | Mediana aproximada |
+|:---|---:|---:|---:|
+| TJAM | 138 | R$ 6,79 mil | R$ 5 mil |
+| TJPA | 139 | R$ 8,26 mil | R$ 5 mil |
+| TJPE | 556 | R$ 6,38 mil | R$ 5 mil |
+| TJSE | 784 | R$ 4,54 mil | R$ 4 mil |
 
-```text
-TOTAL_LINHAS = 677
-IDS_UNICOS = 677
-```
-
-## 5.4 Acurácia contextual
-Problemas detectados:
-
-- falso positivo semântico: “não houve negativação”;
-- valor incorreto: honorários, dano material, pedido ou valor anterior;
-- resultado recursal incorreto: `RECONHECIDO` versus `MANTIDO`.
-
-Tratamento: regras refinadas, validação semântica por IA, auditoria literal e revisão humana.
-
-## 5.5 Outliers
-Foram utilizados média, mediana, P25, P75 e faixas de valor para reduzir distorções.
-
-## 5.6 Qualidade da IA
-
-```text
-337 casos com inteiro teor
-340 somente ementa
-9 casos para revisão humana
-224 divergências de resultado
-71 divergências de valor
-```
-
-## 5.7 Limitações
-
-- cobertura desigual de inteiro teor entre tribunais;
-- URLs genéricas/ausentes em algumas fontes;
-- documentos nem sempre extraíveis;
-- IA aplicada a 677 e não aos 1.617;
-- confiança declarada pelo modelo não é probabilidade calibrada;
-- uso jurídico real exige revisão humana.
-
----
-
-# 6. Análise de Dados (Etapa 4.5)
-
-## 6.1 Visão geral
-
-```text
-Casos analisados: 1.617
-Média geral: R$ 5.686,48
-Mediana geral: R$ 5.000
-P25: R$ 4.000
-P75: R$ 7.000
-Cobertura com URL oficial: 65,62%
-```
-
-A mediana inferior à média indica influência de valores superiores na cauda da distribuição. Metade dos casos se concentra aproximadamente entre R$ 4.000 e R$ 7.000.
-
-## 6.2 P1 — Valor típico
-**Resposta:** aproximadamente **R$ 5.000** como valor central, com intervalo interquartil de R$ 4.000 a R$ 7.000.
-
-## 6.3 P2 — Diferenças entre tribunais
-
-| Tribunal | Média aprox. | Mediana aprox. |
-|---|---:|---:|
-| TJAM | R$ 6,79 mil | R$ 5 mil |
-| TJPA | R$ 8,26 mil | R$ 5 mil |
-| TJPE | R$ 6,38 mil | R$ 5 mil |
-| TJSE | R$ 4,54 mil | R$ 4 mil |
-
-O TJPA tem a maior média, enquanto o TJSE apresenta valores centrais inferiores.
-
-## 6.4 P3 — Evolução temporal
-A mediana anual por tribunal mostra comportamento não uniforme entre 2020 e 2025. Não há evidência, no conjunto analisado, de uma trajetória única de alta ou queda comum aos quatro tribunais.
-
-## 6.5 P4 — Resultado recursal
+**Classificação heurística dos resultados recursais:**
 
 | Tribunal | MAJORADO | MANTIDO | RECONHECIDO | REDUZIDO |
-|---|---:|---:|---:|---:|
+|:---|---:|---:|---:|---:|
 | TJAM | 47 | 27 | 39 | 25 |
 | TJPA | 27 | 31 | 37 | 44 |
 | TJPE | 87 | 150 | 246 | 73 |
 | TJSE | 271 | 84 | 187 | 242 |
 
-Há padrões diferentes entre os tribunais, com forte presença de `RECONHECIDO` no TJPE e de `MAJORADO`/`REDUZIDO` no TJSE.
+Os gráficos permitem explorar a mediana anual, o volume por tribunal, as faixas de indenização e os fundamentos detectados, como *dano in re ipsa*, responsabilidade objetiva, falha na prestação do serviço e razoabilidade/proporcionalidade. Esses resultados são descrições do conjunto selecionado, não uma previsão de decisões futuras.
 
-## 6.6 P5 — Fundamentos
-Foram observados fundamentos recorrentes relacionados a dano in re ipsa, razoabilidade/proporcionalidade, responsabilidade objetiva, falha do serviço, fraude de terceiro, enriquecimento sem causa, caráter pedagógico e Súmula 385/STJ.
+### 6.2 Amostra de IA: 677 casos
 
-## 6.7 P6 — URL oficial
-**65,62%** do universo principal possui URL oficial registrada. Esse indicador foi tratado como métrica de proveniência/auditabilidade.
+| Indicador | Quantidade | Proporção da amostra |
+|:---|---:|---:|
+| Inteiro teor recuperado | 337 | 49,78% |
+| Somente ementa | 340 | 50,22% |
+| Revisão humana sinalizada | 9 | 1,33% |
+| Divergência de resultado | 224 | 33,09% |
+| Divergência de valor | 71 | 10,49% |
 
-## 6.8 P7 — Regra versus IA
+**Divergências de resultado por tribunal na amostra:**
 
-```text
-Divergências de resultado: 224 / 677 = 33,09%
-Divergências de valor: 71 / 677 = 10,49%
-Casos para revisão humana: 9
-```
-
-Divergência de resultado por tribunal:
-
-| Tribunal | Total | Divergências | % |
-|---|---:|---:|---:|
+| Tribunal | Casos na amostra | Divergências | Taxa dentro do tribunal amostrado |
+|:---|---:|---:|---:|
 | TJAM | 138 | 40 | 28,99% |
 | TJPA | 139 | 49 | 35,25% |
 | TJPE | 200 | 98 | 49,00% |
 | TJSE | 200 | 37 | 18,50% |
 
-Médias regra × IA:
+**Divergências de valor por tribunal:** TJAM 11; TJPA 20; TJPE 22; TJSE 18.
 
-| Tribunal | Regra | IA |
-|---|---:|---:|
+**Médias da amostra de 677: regra × IA** (não confundir com a média do universo de 1.617):
+
+| Tribunal | Média da regra | Média da IA |
+|:---|---:|---:|
 | TJAM | R$ 6.789,59 | R$ 6.488,72 |
 | TJPA | R$ 8.256,01 | R$ 6.471,01 |
 | TJPE | R$ 6.047,07 | R$ 5.993,64 |
 | TJSE | R$ 4.542,50 | R$ 4.389,45 |
 
-A análise mostrou que regras baseadas apenas em padrões textuais podem capturar valor pedido, honorários, dano material ou valor anterior. Também podem confundir `RECONHECIDO` com `MANTIDO`.
+O contraste identifica casos prioritários para auditoria. A presença de divergências mostra que palavras-chave e expressões monetárias, isoladamente, podem não resolver questões como valor pedido versus valor fixado ou `RECONHECIDO` versus `MANTIDO`. **Divergência não equivale a erro confirmado**, pois a IA também exige validação.
 
-## 6.9 Discussão geral
-O pipeline respondeu ao problema inicial e mostrou que a combinação de Engenharia de Dados, regras determinísticas e IA com auditoria é superior ao uso isolado de uma única técnica.
+# 7. Dashboards: Databricks e Power BI
 
----
+### 7.1 Dashboard Databricks
 
-# 7. Autoavaliação
+O Databricks dispõe de uma visão analítica baseada no universo de **1.617 casos qualificados**, além de seção própria para a **amostra de 677 casos submetida à IA**. A seção de IA apresenta cinco indicadores — amostra total, inteiro teor, revisão humana, divergências de resultado e divergências de valor — e gráficos por tribunal. O ambiente Databricks é separado da publicação pública do Power BI e pode exigir acesso autorizado ao workspace.
+
+### 7.2 Relatório público Microsoft Power BI
+
+**[▶ ACESSAR AS TRÊS PÁGINAS DO DASHBOARD](https://app.powerbi.com/view?r=eyJrIjoiYzIxZDRkMDEtNTQ2Zi00YTZmLWJjNzYtNGQ1NjE5N2FkYWQ2IiwidCI6IjFiYTk1NTkzLTIzZDctNGJhYS1hMWQ2LTNjNWMwMDZlMWQ4NSJ9)**
+
+| Página | Conteúdo |
+|:---|:---|
+| **Visão Geral** | KPIs do conjunto de 1.617 casos, gráficos de distribuição e comparação entre tribunais, filtros de tribunal, ano, resultado e faixa de valor; seção de validação por IA com indicadores e divergências |
+| **Julgados** | Tabela navegável com número do processo, tribunal, data quando preenchida, resultado heurístico, valor extraído, fundamentos, ementa e URL cadastrada; filtros combináveis |
+| **Detalhe do Processo** | Seletor individual de processo; cartões de tribunal, data de julgamento, valor formatado em reais e resultado; ementa e link oficial quando existente |
+
+O relatório foi publicado no Power BI on-line por meio de **Publicar na Web**, com código público gerado em 23/09/2026. O endereço do navegador do autor (`/groups/me/reports/...`) não deve ser utilizado no GitHub, pois aponta para a área autenticada; o link acima é o endereço público de visualização (`/view?r=...`). O link deve ser conferido em janela anônima antes da entrega.
+
+**Limitações da navegação:** o link do TJAM pode exigir nova pesquisa no portal oficial; o TJPE está sem URL nesta versão; nem todo registro contém a data exata do julgamento. A métrica de cobertura de URL não mede diretamente acesso ao inteiro teor. A publicação pública é adequada apenas aos dados avaliados para divulgação irrestrita, inclusive dados potencialmente expostos por interação com o relatório.
+
+# 8. Estrutura e reprodutibilidade do repositório
+
+A estrutura abaixo foi conferida no GitHub. Ela mostra **arquivos presentes** no repositório e não presume a existência de notebooks ou documentos ainda não enviados.
+
+```text
+jus-expertia-mvp/
+├── .gitignore
+├── README.md
+├── notebooks/
+│   ├── README.md
+│   └── 01_JusExpertia_Diagnostico_Dados.py
+├── scripts/
+│   ├── README.md
+│   ├── separar_tribunais.py
+│   ├── processar_deepseek_677.py
+│   ├── diagnosticar_4_faltantes.py
+│   └── reprocessar_4_faltantes.py
+└── docs/
+    ├── README.md
+    ├── JusExpertia_MVP_Documento_Final_com_Catalogo_Completo.docx
+    └── screenshots/
+        ├── README.md
+        ├── imagem 1.png
+        ├── imagem 2.png
+        └── imagem 3.png
+```
+
+**Repositório:** https://github.com/genivalfeitoza/jus-expertia-mvp
+
+O material publicado contém código de diagnóstico e processamento local de IA, documentação acadêmica e evidências visuais. As tabelas geradas no workspace e o dashboard Databricks não são automaticamente replicados pelo GitHub. Para uma reexecução integral em outro ambiente, são necessários os dados de origem legitimamente obtidos, a configuração do Databricks e os notebooks/etapas de transformação correspondentes; **não se afirma que a clonagem isolada deste repositório reproduza toda a ingestão**.
+
+Não publicar tokens da Together AI, segredos do Databricks, `.env`, chaves privadas ou dados confidenciais. As configurações de autenticação devem ser fornecidas localmente ou por mecanismo seguro de segredos. O enriquecimento por uma API externa também pressupõe avaliação prévia dos textos que serão enviados ao provedor.
+
+# 9. Evidências e documentação complementar
+
+Há um documento acadêmico complementar em [`docs/JusExpertia_MVP_Documento_Final_com_Catalogo_Completo.docx`](docs/JusExpertia_MVP_Documento_Final_com_Catalogo_Completo.docx) e imagens já existentes em [`docs/screenshots/`](docs/screenshots/). Antes da entrega, recomenda-se conferir suas legendas e se correspondem à versão atual do pipeline e dos dashboards.
+
+Evidências particularmente úteis para avaliação:
+
+- Managed Volume com o arquivo `resultados_deepseek_677.csv`;
+- contagem `677 linhas = 677 IDs únicos` e distribuição entre os quatro tribunais;
+- Catalog Explorer e esquema das tabelas Gold;
+- execução dos testes `GATE_TABELA_FINAL = PASS` e `GATE_ANALYTICS = PASS`;
+- comparação regra × IA e os cinco KPIs da amostra;
+- Visão Geral, Julgados e Detalhe do Processo no Power BI publicado;
+- teste de acesso ao link público sem login.
+
+**Nota de documentação:** esta lista indica evidências desejáveis; ela não afirma que todas essas capturas já estejam presentes na pasta pública. Fotografias ou capturas adicionais devem ser inseridas apenas quando tiverem sido efetivamente geradas.
+
+# 10. Autoavaliação
 
 ## 7.1 Atingimento dos objetivos
 
 Ao final deste MVP, considero que consegui atingir o objetivo principal que havia traçado no início do trabalho. Minha proposta era construir um pipeline funcional de dados em nuvem capaz de organizar, tratar e analisar jurisprudência relacionada a danos morais decorrentes de negativação indevida, e esse objetivo foi alcançado.
 
-Consegui estruturar o fluxo completo no Databricks, desde a carga dos dados até a persistência das tabelas em Delta Lake, passando por etapas de transformação, controle de qualidade, criação das camadas analíticas, construção do catálogo de dados, análise estatística e publicação de um dashboard.
+Consegui estruturar o fluxo completo no Databricks, desde a carga dos dados até a persistência das tabelas em Delta Lake, passando por etapas de transformação, controle de qualidade, criação das camadas analíticas, organização das tabelas no Unity Catalog, análise estatística e publicação de dashboards.
 
 Além disso, ampliei o escopo inicial ao incluir uma etapa de validação semântica por inteligência artificial. Essa etapa me permitiu comparar classificações heurísticas com uma análise contextual mais aprofundada, principalmente quanto ao resultado recursal e ao valor final da indenização.
 
@@ -616,7 +470,7 @@ Como evolução futura, pretendo aplicar a análise semântica ao universo compl
 
 Também considero importante aperfeiçoar os mecanismos de recuperação do inteiro teor diretamente das fontes oficiais, aumentando a rastreabilidade e a qualidade das análises.
 
-Outro passo relevante seria construir um processo sistemático de validação humana das respostas produzidas pela IA, permitindo medir com maior precisão a qualidade das classificações.
+Outro passo relevante seria construir um processo sistemático de validação humana das respostas produzidas pela IA, permitindo medir com maior precisão a qualidade das classificações em um conjunto de referência maior.
 
 Pretendo ainda implementar uma rotina incremental de atualização dos dados, para que novas decisões possam ser incorporadas ao pipeline sem necessidade de reprocessar todo o conjunto histórico.
 
@@ -624,57 +478,17 @@ Também seria interessante desenvolver mecanismos de monitoramento contínuo da 
 
 Por fim, uma evolução natural do projeto seria aprofundar a análise semântica de precedentes, fundamentos jurídicos e critérios de fixação do quantum indenizatório, transformando o JusExpertia em uma ferramenta cada vez mais útil para pesquisa jurisprudencial e apoio à análise jurídica.
 
+# 11. Próximos passos
 
-# 8. Evidências visuais
+A evolução proposta preserva a separação entre **trabalho entregue** e **melhorias planejadas**:
 
-Inserir screenshots com legenda e numeração:
-
-1. Managed Volume com `resultados_deepseek_677.csv`;
-2. validação `677 linhas / 677 ids`;
-3. Catalog Explorer com tabelas;
-4. `GATE_TABELA_FINAL = PASS`;
-5. `GATE_ANALYTICS = PASS`;
-6. comparação regra × IA;
-7. seção **Análise Jurisprudencial — Universo de 1.617 casos qualificados**;
-8. seção **Validação por IA — Amostra estratificada de 677 casos**;
-9. dashboard publicado.
+1. Completar os links diretos dos julgados do TJAM e cadastrar, quando disponíveis e validados, os endereços oficiais específicos do TJPE. Associar cada URL à **decisão**, não apenas ao número do processo, pois pode haver múltiplos julgamentos.
+2. Aplicar a análise contextual a mais casos do universo de 1.617 e ampliar a validação humana com amostra de referência maior.
+3. Melhorar a padronização e a documentação da data de julgamento versus data de publicação e ano analítico.
+4. Disponibilizar exportações de esquemas reais e metadados completos do catálogo, além de notebooks adicionais de transformação e qualidade quando finalizados.
+5. Automatizar atualização incremental, monitoramento de qualidade, auditoria das evidências e testes de integridade dos links.
+6. Manter uma versão de demonstração somente com dados adequados à publicação pública e revisar periodicamente as permissões de compartilhamento.
 
 ---
 
-# 9. Repositório e organização do código
-
-**Repositório:** `[INSERIR URL DO GITHUB]`
-
-```text
-jus-expertia-mvp/
-├── README.md
-├── notebooks/
-├── scripts/
-└── docs/
-    └── screenshots/
-```
-
-Não publicar chaves, `.env`, tokens, pesos privados, adapters LoRA, datasets de treinamento privados ou prompts internos sensíveis.
-
-`.gitignore` mínimo:
-
-```text
-.env
-*.key
-*.pem
-__pycache__/
-.DS_Store
-```
-
----
-
-
-# 10. Conclusão
-
-O JusExpertia demonstra um pipeline funcional em nuvem que transforma jurisprudência pública não estruturada em informação analítica organizada.
-
-```text
-problema → coleta → nuvem → modelagem → ETL → qualidade → análise → dashboard → validação
-```
-
-A principal conclusão técnica é que um pipeline jurídico confiável não deve depender exclusivamente de palavras-chave, regex ou IA generativa. A combinação de **proveniência, transformação determinística, validação de qualidade, análise estatística, enriquecimento semântico e revisão humana** produz um resultado mais rastreável e defensável.
+**Conclusão:** o JusExpertia demonstra um fluxo acadêmico de engenharia de dados que combina pré-seleção temática, processamento Lakehouse, avaliação de qualidade, estatística descritiva, enriquecimento semântico auditável e exploração interativa. Seu resultado mais importante é a separação explícita entre **origem**, **regra heurística**, **interpretação da IA** e **validação humana**, evitando que um dashboard transmita certeza jurídica superior à evidência disponível.
