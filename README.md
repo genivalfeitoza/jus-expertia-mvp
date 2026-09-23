@@ -402,7 +402,7 @@ Evidências particularmente úteis para avaliação:
 
 # 10. Autoavaliação
 
-## 7.1 Atingimento dos objetivos
+## 10.1 Atingimento dos objetivos
 
 Ao final deste MVP, considero que consegui atingir o objetivo principal que havia traçado no início do trabalho. Minha proposta era construir um pipeline funcional de dados em nuvem capaz de organizar, tratar e analisar jurisprudência relacionada a danos morais decorrentes de negativação indevida, e esse objetivo foi alcançado.
 
@@ -412,7 +412,7 @@ Além disso, ampliei o escopo inicial ao incluir uma etapa de validação semân
 
 Entendo, portanto, que o projeto não apenas atendeu ao objetivo acadêmico de construção de um pipeline de dados de ponta a ponta, mas também produziu uma base concreta para uma aplicação jurídica mais ampla no futuro.
 
-## 7.2 Dificuldades encontradas
+## 10.2 Dificuldades encontradas
 
 Durante o desenvolvimento, enfrentei dificuldades que foram importantes para o meu aprendizado.
 
@@ -428,7 +428,7 @@ Na etapa de inteligência artificial, enfrentei ainda situações de respostas e
 
 Essas dificuldades acabaram sendo valiosas porque me obrigaram a pensar não apenas na execução técnica, mas também na confiabilidade, rastreabilidade e qualidade do dado produzido.
 
-## 7.3 Decisões que considero positivas
+## 10.3 Decisões que considero positivas
 
 Algumas decisões tomadas durante o projeto foram especialmente importantes para aumentar a confiabilidade do resultado.
 
@@ -448,7 +448,7 @@ Por fim, considero positiva a separação clara entre o universo principal de 1.
 
 Na parte estatística, optei por utilizar mediana e quartis além da média, porque percebi que a média isolada poderia ser influenciada por valores extremos.
 
-## 7.4 Limitações do trabalho
+## 10.4 Limitações do trabalho
 
 Reconheço que o projeto possui limitações.
 
@@ -462,7 +462,7 @@ Outra limitação é que a confiança declarada pelo modelo de IA não deve ser 
 
 Por fim, este trabalho não pretende substituir a análise jurídica profissional. A IA foi utilizada como ferramenta de enriquecimento e apoio à classificação, e não como fonte autônoma de conclusão jurídica.
 
-## 7.5 Trabalhos futuros
+## 10.5 Trabalhos futuros
 
 Vejo este MVP como uma primeira etapa de um projeto maior.
 
